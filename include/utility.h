@@ -57,6 +57,8 @@ using namespace std;
 
 typedef pcl::PointXYZI PointType;
 
+enum class SensorType { VELODYNE, OUSTER };
+
 class ParamServer
 {
 public:
@@ -87,11 +89,13 @@ public:
     bool savePCD;
     string savePCDDirectory;
 
-    // Velodyne Sensor Configuration: Velodyne
+    // Lidar Sensor Configuration
+    SensorType sensor;
     int N_SCAN;
     int Horizon_SCAN;
-    string timeField;
     int downsampleRate;
+    float lidarMinRange;
+    float lidarMaxRange;
 
     // IMU
     float imuAccNoise;
@@ -99,6 +103,7 @@ public:
     float imuAccBiasN;
     float imuGyrBiasN;
     float imuGravity;
+    float imuRPYWeight;
     vector<double> extRotV;
     vector<double> extRPYV;
     vector<double> extTransV;
@@ -167,16 +172,35 @@ public:
         nh.param<bool>("lio_sam/savePCD", savePCD, false);
         nh.param<std::string>("lio_sam/savePCDDirectory", savePCDDirectory, "/Downloads/LOAM/");
 
+        std::string sensorStr;
+        nh.param<std::string>("lio_sam/sensor", sensorStr, "");
+        if (sensorStr == "velodyne")
+        {
+            sensor = SensorType::VELODYNE;
+        }
+        else if (sensorStr == "ouster")
+        {
+            sensor = SensorType::OUSTER;
+        }
+        else
+        {
+            ROS_ERROR_STREAM(
+                "Invalid sensor type (must be either 'velodyne' or 'ouster'): " << sensorStr);
+            ros::shutdown();
+        }
+
         nh.param<int>("lio_sam/N_SCAN", N_SCAN, 16);
         nh.param<int>("lio_sam/Horizon_SCAN", Horizon_SCAN, 1800);
-        nh.param<std::string>("lio_sam/timeField", timeField, "time");
         nh.param<int>("lio_sam/downsampleRate", downsampleRate, 1);
+        nh.param<float>("lio_sam/lidarMinRange", lidarMinRange, 1.0);
+        nh.param<float>("lio_sam/lidarMaxRange", lidarMaxRange, 1000.0);
 
         nh.param<float>("lio_sam/imuAccNoise", imuAccNoise, 0.01);
         nh.param<float>("lio_sam/imuGyrNoise", imuGyrNoise, 0.001);
         nh.param<float>("lio_sam/imuAccBiasN", imuAccBiasN, 0.0002);
         nh.param<float>("lio_sam/imuGyrBiasN", imuGyrBiasN, 0.00003);
         nh.param<float>("lio_sam/imuGravity", imuGravity, 9.80511);
+        nh.param<float>("lio_sam/imuRPYWeight", imuRPYWeight, 0.01);
         nh.param<vector<double>>("lio_sam/extrinsicRot", extRotV, vector<double>());
         nh.param<vector<double>>("lio_sam/extrinsicRPY", extRPYV, vector<double>());
         nh.param<vector<double>>("lio_sam/extrinsicTrans", extTransV, vector<double>());
